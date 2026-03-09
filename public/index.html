@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Premium Store - 官方展示店</title>
+    <!-- 引入美觀的字體 -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #0f172a;
+        color: #f8fafc;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        text-align: center;
+        overflow: hidden;
+      }
+      /* Debug 面板 */
+      #debug-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 380px;
+        max-height: 420px;
+        background: rgba(2, 6, 23, 0.92);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        flex-direction: column;
+        z-index: 9999;
+        backdrop-filter: blur(10px);
+        font-size: 0.78rem;
+      }
+      #debug-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px;
+        background: rgba(56, 189, 248, 0.08);
+        border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+        border-radius: 12px 12px 0 0;
+        cursor: pointer;
+        user-select: none;
+      }
+      #debug-header span { color: #38bdf8; font-weight: 600; font-size: 0.8rem; }
+      #rtm-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #ef4444; display: inline-block; margin-right: 6px;
+        transition: background 0.3s;
+      }
+      #rtm-dot.connected { background: #22c55e; }
+      #debug-log {
+        overflow-y: auto;
+        flex: 1;
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .log-entry {
+        padding: 6px 10px;
+        border-radius: 6px;
+        line-height: 1.4;
+        text-align: left;
+        word-break: break-word;
+      }
+      .log-entry.customer  { background: rgba(99,102,241,0.15); border-left: 3px solid #6366f1; }
+      .log-entry.agent     { background: rgba(148,163,184,0.1); border-left: 3px solid #94a3b8; }
+      .log-entry.ai        { background: rgba(34,197,94,0.12);  border-left: 3px solid #22c55e; }
+      .log-entry.new_chat  { background: rgba(251,191,36,0.1);  border-left: 3px solid #fbbf24; }
+      .log-entry.error     { background: rgba(239,68,68,0.12);  border-left: 3px solid #ef4444; }
+      .log-meta { color: #64748b; font-size: 0.7rem; margin-bottom: 2px; }
+      .log-text { color: #e2e8f0; }
+      #debug-clear {
+        background: none; border: none; color: #64748b;
+        cursor: pointer; font-size: 0.72rem; padding: 4px 8px;
+      }
+      #debug-clear:hover { color: #94a3b8; }
+      /* 增加動態背景元素 */
+      .bg-glow {
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(
+          circle,
+          rgba(56, 189, 248, 0.15) 0%,
+          rgba(15, 23, 42, 0) 70%
+        );
+        top: -200px;
+        left: -200px;
+        border-radius: 50%;
+        z-index: -1;
+        animation: pulse 4s infinite alternate;
+      }
+      /* 玻璃擬態質感的容器 */
+      .container {
+        max-width: 800px;
+        padding: 50px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 20px;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        animation: fadeIn 1.2s ease-out;
+        position: relative;
+      }
+      h1 {
+        font-size: 3rem;
+        margin-bottom: 20px;
+        background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 600;
+      }
+      p {
+        font-size: 1.2rem;
+        color: #94a3b8;
+        line-height: 1.7;
+        margin-bottom: 40px;
+      }
+      /* 極具質感的按鈕 */
+      .btn {
+        background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+        color: white;
+        border: none;
+        padding: 16px 36px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+      }
+      .btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 25px -5px rgba(99, 102, 241, 0.6);
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes pulse {
+        from {
+          transform: scale(1);
+          opacity: 0.6;
+        }
+        to {
+          transform: scale(1.1);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-glow"></div>
+
+    <div class="container">
+      <h1>探索頂級智能科技</h1>
+      <p>
+        歡迎來到我們的線上概念展示店。我們致力於提供您最具未來感的生活體驗。如果您對我們的產品有任何疑問，或者需要售後協助，請直接點擊右下角的聊天按鈕與我們的
+        AI 虛擬客服聯絡！
+      </p>
+      <button class="btn" onclick="openChat()">與專屬客服對話</button>
+    </div>
+
+    <!-- Debug 面板 -->
+    <div id="debug-panel">
+      <div id="debug-header" onclick="toggleDebug()">
+        <span><span id="rtm-dot"></span>AI 回覆監控</span>
+        <div>
+          <button id="debug-clear" onclick="event.stopPropagation(); clearLog()">清除</button>
+          <span id="debug-toggle" style="color:#64748b;font-size:0.75rem;">▼</span>
+        </div>
+      </div>
+      <div id="debug-log"></div>
+    </div>
+
+    <!-- 自訂的開啟聊天按鈕邏輯 -->
+    <script>
+      function openChat() {
+        if (window.LiveChatWidget) {
+          window.LiveChatWidget.call("maximize");
+        } else {
+          alert("LiveChat 客服元件載入中，請稍候...");
+        }
+      }
+
+      // Debug 面板
+      let debugOpen = true;
+      function toggleDebug() {
+        debugOpen = !debugOpen;
+        document.getElementById("debug-log").style.display = debugOpen ? "flex" : "none";
+        document.getElementById("debug-toggle").textContent = debugOpen ? "▼" : "▲";
+      }
+      function clearLog() {
+        document.getElementById("debug-log").innerHTML = "";
+      }
+
+      const typeLabel = {
+        customer: "👤 顧客訊息",
+        agent:    "🎧 客服訊息",
+        ai:       "🤖 AI 回覆",
+        new_chat: "🌟 新聊天",
+        error:    "❌ 錯誤",
+      };
+
+      function addLog(e) {
+        const log = document.getElementById("debug-log");
+        const div = document.createElement("div");
+        div.className = `log-entry ${e.type}`;
+        const time = new Date(e.time).toLocaleTimeString("zh-TW");
+        div.innerHTML = `
+          <div class="log-meta">${typeLabel[e.type] || e.type} · ${time} · ${e.chatId || ""}</div>
+          <div class="log-text">${e.text || ""}</div>`;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      // SSE 連線
+      function connectSSE() {
+        const es = new EventSource("/api/stream");
+        es.onmessage = (ev) => {
+          const data = JSON.parse(ev.data);
+          addLog(data);
+        };
+        es.onopen = () => {
+          document.getElementById("rtm-dot").classList.add("connected");
+        };
+        es.onerror = () => {
+          document.getElementById("rtm-dot").classList.remove("connected");
+          setTimeout(connectSSE, 3000);
+          es.close();
+        };
+      }
+      connectSSE();
+
+      // 輪詢 RTM 狀態顯示
+      setInterval(async () => {
+        try {
+          const r = await fetch("/api/status");
+          const d = await r.json();
+          document.getElementById("rtm-dot").classList.toggle("connected", d.rtm_connected);
+        } catch {}
+      }, 5000);
+    </script>
+
+    <!-- Start of LiveChat (www.livechat.com) code -->
+    <script>
+      window.__lc = window.__lc || {};
+      window.__lc.license = 19574060;
+      window.__lc.integration_name = "manual_onboarding";
+      window.__lc.product_name = "livechat";
+      (function (n, t, c) {
+        function i(n) {
+          return e._h ? e._h.apply(null, n) : e._q.push(n);
+        }
+        var e = {
+          _q: [],
+          _h: null,
+          _v: "2.0",
+          on: function () {
+            i(["on", c.call(arguments)]);
+          },
+          once: function () {
+            i(["once", c.call(arguments)]);
+          },
+          off: function () {
+            i(["off", c.call(arguments)]);
+          },
+          get: function () {
+            if (!e._h)
+              throw new Error(
+                "[LiveChatWidget] You can't use getters before load.",
+              );
+            return i(["get", c.call(arguments)]);
+          },
+          call: function () {
+            i(["call", c.call(arguments)]);
+          },
+          init: function () {
+            var n = t.createElement("script");
+            ((n.async = !0),
+              (n.type = "text/javascript"),
+              (n.src = "https://cdn.livechatinc.com/tracking.js"),
+              t.head.appendChild(n));
+          },
+        };
+        (!n.__lc.asyncInit && e.init(),
+          (n.LiveChatWidget = n.LiveChatWidget || e));
+      })(window, document, [].slice);
+    </script>
+    <noscript
+      ><a href="https://www.livechat.com/chat-with/19574060/" rel="nofollow"
+        >Chat with us</a
+      >, powered by
+      <a
+        href="https://www.livechat.com/?welcome"
+        rel="noopener nofollow"
+        target="_blank"
+        >LiveChat</a
+      ></noscript
+    >
+    <!-- End of LiveChat code -->
+  </body>
+</html>
