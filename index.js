@@ -64,6 +64,7 @@ function pushEvent(entry) {
 // ── RTM WebSocket 監聽 ────────────────────────────────────────
 let rtmWs = null;
 let reqId = 1;
+let myAgentId = null; // 登入後記錄自己的 agent ID
 
 function connectRTM() {
   console.log("🔌 正在連線 LiveChat RTM WebSocket...");
@@ -91,7 +92,8 @@ function connectRTM() {
     // 登入回應 (response 一定有 success 欄位)
     if (msg.request_id?.startsWith("login_") && "success" in msg) {
       if (msg.success) {
-        console.log("✅ RTM 登入成功，開始監聽訊息...\n");
+        myAgentId = msg.payload?.license?.account?.id || msg.payload?.my_profile?.id;
+        console.log(`✅ RTM 登入成功，Agent ID: ${myAgentId}\n`);
       } else {
         console.error("❌ RTM 登入失敗:", JSON.stringify(msg.payload));
       }
@@ -106,6 +108,8 @@ function connectRTM() {
       if (event?.type === "message") {
         const authorId = event.author_id;
         const text = event.text;
+        // 如果是自己發出的訊息，直接跳過（避免循環回覆）
+        if (myAgentId && authorId === myAgentId) return;
         const isCustomer = !String(authorId).includes("@");
 
         console.log(`\n💬 Chat [${chatId}]`);
