@@ -11,6 +11,9 @@ const TOKEN = process.env.LIVECHAT_TOKEN;
 const API_BASE = "https://api.livechatinc.com/v3.5/agent/action";
 const RTM_URL = "wss://api.livechatinc.com/v3.5/agent/rtm/ws";
 
+// 從 base64 token 解出 account UUID (格式: accountId:region:pat)
+const MY_ACCOUNT_ID = Buffer.from(TOKEN, "base64").toString("utf-8").split(":")[0];
+
 const authHeaders = {
   Authorization: `Basic ${TOKEN}`,
   "Content-Type": "application/json",
@@ -64,13 +67,16 @@ function pushEvent(entry) {
 // ── RTM WebSocket 監聽 ────────────────────────────────────────
 let rtmWs = null;
 let reqId = 1;
-let myAgentId = null; // 登入後記錄自己的 agent ID
+let isConnecting = false; // 防止重複連線
 
 function connectRTM() {
+  if (isConnecting) return; // 防止重複連線
+  isConnecting = true;
   console.log("🔌 正在連線 LiveChat RTM WebSocket...");
   rtmWs = new WebSocket(RTM_URL);
 
   rtmWs.on("open", () => {
+    isConnecting = false;
     console.log("✅ RTM WebSocket 已連線，正在登入...");
     rtmWs.send(
       JSON.stringify({
@@ -92,8 +98,7 @@ function connectRTM() {
     // 登入回應 (response 一定有 success 欄位)
     if (msg.request_id?.startsWith("login_") && "success" in msg) {
       if (msg.success) {
-        myAgentId = msg.payload?.license?.account?.id || msg.payload?.my_profile?.id;
-        console.log(`✅ RTM 登入成功，Agent ID: ${myAgentId}\n`);
+        console.log(`✅ RTM 登入成功，My Account ID: ${MY_ACCOUNT_ID}\n`);
       } else {
         console.error("❌ RTM 登入失敗:", JSON.stringify(msg.payload));
       }
@@ -108,8 +113,8 @@ function connectRTM() {
       if (event?.type === "message") {
         const authorId = event.author_id;
         const text = event.text;
-        // 如果是自己發出的訊息，直接跳過（避免循環回覆）
-        if (myAgentId && authorId === myAgentId) return;
+        // 過濾自己發出的訊息（比對 account UUID）
+        if (authorId === MY_ACCOUNT_ID) return;
         const isCustomer = !String(authorId).includes("@");
 
         console.log(`\n💬 Chat [${chatId}]`);
@@ -168,6 +173,7 @@ function connectRTM() {
   rtmWs.on("close", (code) => {
     console.log(`⚠️  RTM 連線中斷 (code: ${code})，5 秒後重連...`);
     rtmWs = null;
+    isConnecting = false;
     setTimeout(connectRTM, 5000);
   });
 
