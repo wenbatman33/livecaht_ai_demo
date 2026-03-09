@@ -67,7 +67,9 @@ function pushEvent(entry) {
 // ── RTM WebSocket 監聽 ────────────────────────────────────────
 let rtmWs = null;
 let reqId = 1;
-let isConnecting = false; // 防止重複連線
+let isConnecting = false;
+let myAgentEmail = null; // login 後從回應取得
+const replyCooldown = new Set(); // 冷卻中的 chat id，防止多連線重複回覆
 
 function connectRTM() {
   if (isConnecting) return; // 防止重複連線
@@ -98,7 +100,8 @@ function connectRTM() {
     // 登入回應 (response 一定有 success 欄位)
     if (msg.request_id?.startsWith("login_") && "success" in msg) {
       if (msg.success) {
-        console.log(`✅ RTM 登入成功，My Account ID: ${MY_ACCOUNT_ID}\n`);
+        myAgentEmail = msg.payload?.my_profile?.email || msg.payload?.my_profile?.login;
+        console.log(`✅ RTM 登入成功，ID: ${MY_ACCOUNT_ID}, Email: ${myAgentEmail}\n`);
       } else {
         console.error("❌ RTM 登入失敗:", JSON.stringify(msg.payload));
       }
@@ -113,8 +116,8 @@ function connectRTM() {
       if (event?.type === "message") {
         const authorId = event.author_id;
         const text = event.text;
-        // 過濾自己發出的訊息（比對 account UUID）
-        if (authorId === MY_ACCOUNT_ID) return;
+        // 過濾自己發出的訊息（UUID 或 email 都比對）
+        if (authorId === MY_ACCOUNT_ID || (myAgentEmail && authorId === myAgentEmail)) return;
         const isCustomer = !String(authorId).includes("@");
 
         console.log(`\n💬 Chat [${chatId}]`);
@@ -133,12 +136,19 @@ function connectRTM() {
 
         // 只對顧客訊息自動回覆
         if (isCustomer) {
+          // 冷卻中的 chat 跳過（防止多連線重複回覆）
+          if (replyCooldown.has(chatId)) {
+            console.log(`   ⏭️  冷卻中，跳過 [${chatId}]`);
+            return;
+          }
+          replyCooldown.add(chatId);
+          setTimeout(() => replyCooldown.delete(chatId), 5000); // 5 秒冷卻
+
           const reply = getAutoReply(text);
           setTimeout(async () => {
             try {
               await sendReply(chatId, reply);
               console.log(`   🤖 自動回覆: ${reply}\n`);
-              // 推播 AI 回覆到前端
               pushEvent({
                 type: "ai",
                 chatId,
